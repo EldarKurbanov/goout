@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"goout/web"
 	"log"
@@ -17,12 +18,19 @@ import (
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
 	"github.com/joho/godotenv"
+	"gorm.io/gorm"
 )
 
 type Event struct {
 	Date        string
 	Time        string
 	Description string
+}
+
+type Message struct {
+	ChannelID int64 `gorm:"primaryKey"`
+	ID        int   `gorm:"primaryKey"`
+	Text      string
 }
 
 func extractEvents(messages []string) []Event {
@@ -64,6 +72,8 @@ func main() {
 		log.Fatal("failed to parse APP_ID:", err)
 	}
 
+	dialector := sqlite.Open("goout.db")
+
 	client, err := gotgproto.NewClient(
 		// Get AppID from https://my.telegram.org/apps
 		appID,
@@ -76,7 +86,7 @@ func main() {
 
 			// custom authenticator using web api
 			AuthConversator: wa,
-			Session:         sessionMaker.SqlSession(sqlite.Open("goout.db")),
+			Session:         sessionMaker.SqlSession(dialector),
 			Device: &telegram.DeviceConfig{
 				DeviceModel:    "web",
 				SystemVersion:  "web",
@@ -91,6 +101,16 @@ func main() {
 	}
 
 	defer client.Stop()
+
+	db, err := gorm.Open(dialector, &gorm.Config{})
+	if err != nil {
+		log.Fatal("failed to open database:", err)
+	}
+
+	err = db.AutoMigrate(&Message{})
+	if err != nil {
+		log.Fatal("failed to automigrate message:", err)
+	}
 
 	// Создаём контекст
 	tgCtx := client.CreateContext()
@@ -119,24 +139,46 @@ func main() {
 		AccessHash: channel.AccessHash,
 	}
 
+	// Получаем последнее сохранённое сообщение
+	var lastMsg Message
+
+	err = db.Select("id").Where("channel_id = ?", channel.ID).Order("id desc").First(&lastMsg).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Fatal("failed to get last message:", err)
+	}
+
 	// 4. Запрашиваем последние 10 сообщений
 	msgs, err := tgCtx.Raw.MessagesGetHistory(context.TODO(), &tg.MessagesGetHistoryRequest{
-		Peer:  inputPeer,
-		Limit: 10,
+		Peer:      inputPeer,
+		Limit:     100,
+		AddOffset: -lastMsg.ID,
 	})
 	if err != nil {
 		log.Fatal("failed to get message history:", err)
 	}
 
-	var messages []string
-
-	// 5. Выводим сообщения
+	// 5. Сохраняем новые сообщения
 	for _, msg := range msgs.(*tg.MessagesChannelMessages).Messages {
 		if message, ok := msg.(*tg.Message); ok {
 			fmt.Printf("Message ID: %d | Text: %s\n", message.ID, message.Message)
 
-			messages = append(messages, message.Message)
+			err = db.Create(&Message{
+				ChannelID: channel.ID,
+				ID:        message.ID,
+				Text:      message.Message,
+			}).Error
+			if err != nil {
+				log.Fatal("failed to create message in db:", err)
+			}
 		}
+	}
+
+	// 6. Получаем все сообщения из базы
+	var messages []string
+
+	err = db.Model(&Message{}).Where("channel_id = ?", channel.ID).Pluck("text", &messages).Error
+	if err != nil {
+		log.Fatal("failed to get messages from db:", err)
 	}
 
 	events := extractEvents(messages)
