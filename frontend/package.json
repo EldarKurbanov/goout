@@ -1,0 +1,26 @@
+{
+  "name": "goout",
+  "version": "1.0.0",
+  "description": "Event collector",
+  "keywords": [
+    "goout"
+  ],
+  "homepage": "https://github.com/EldarKurbanov/goout#readme",
+  "bugs": {
+    "url": "https://github.com/EldarKurbanov/goout/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EldarKurbanov/goout.git"
+  },
+  "license": "ISC",
+  "author": "Eldar Kurbanov",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@event-calendar/core": "^3.10.0"
+  }
+}
