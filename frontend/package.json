@@ -21,6 +21,6 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
-    "@event-calendar/core": "^3.10.0"
+    "@event-calendar/core": "^3.12.0"
   }
 }
