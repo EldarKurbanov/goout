@@ -8,9 +8,11 @@ const ec = new Calendar({
         plugins: [TimeGrid],
         options: {
             view: 'timeGridWeek',
-            events: [
-                { title: 'Встреча', start: '2025-04-10T10:00:00', end: '2025-04-10T11:30:00' },
-                { title: 'Звонок', start: '2025-04-12T14:00:00', end: '2025-04-12T15:30:00' }
+            eventSources: [
+                {
+                    url: 'http://localhost/events',
+                    method: 'GET',
+                }
             ]
         }
     }
