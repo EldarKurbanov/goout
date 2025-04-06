@@ -1,17 +1,30 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/celestix/gotgproto"
+	"golang.org/x/sync/errgroup"
+
+	"goout/config"
 )
 
-// Start a web server and wait
-func Start(wa *webAuth) {
-	http.HandleFunc("/", wa.setInfo)
-	http.HandleFunc("/getAuthStatus", wa.getAuthStatus)
-	http.ListenAndServe(":9997", nil)
+func Start(config *config.Config, errgroup *errgroup.Group, wa *webAuth) func(context.Context) error {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", wa.setInfo)
+	mux.HandleFunc("/getAuthStatus", wa.getAuthStatus)
+
+	server := &http.Server{
+		Addr:    config.AuthAddr,
+		Handler: mux,
+	}
+
+	errgroup.Go(server.ListenAndServe)
+
+	return server.Shutdown
 }
 
 func (wa *webAuth) getAuthStatus(w http.ResponseWriter, req *http.Request) {

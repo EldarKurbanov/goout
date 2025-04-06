@@ -4,20 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"goout/web"
 	"log"
-	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
-	"github.com/celestix/gotgproto"
-	"github.com/celestix/gotgproto/sessionMaker"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/glebarez/sqlite"
-	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
-	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 )
 
@@ -58,60 +50,6 @@ func extractEvents(messages []string) []Event {
 // http://localhost:9997/?set=code&code=XXXXX
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	wa := web.GetWebAuth()
-	// start web api
-	go web.Start(wa)
-
-	appID, err := strconv.Atoi(os.Getenv("APP_ID"))
-	if err != nil {
-		log.Fatal("failed to parse APP_ID:", err)
-	}
-
-	dialector := sqlite.Open("goout.db")
-
-	client, err := gotgproto.NewClient(
-		// Get AppID from https://my.telegram.org/apps
-		appID,
-		// Get ApiHash from https://my.telegram.org/apps
-		os.Getenv("API_HASH"),
-		// ClientType, as we defined above
-		gotgproto.ClientTypePhone(os.Getenv("PHONE_NUMBER")),
-		// Optional parameters of client
-		&gotgproto.ClientOpts{
-
-			// custom authenticator using web api
-			AuthConversator: wa,
-			Session:         sessionMaker.SqlSession(dialector),
-			Device: &telegram.DeviceConfig{
-				DeviceModel:    "web",
-				SystemVersion:  "web",
-				AppVersion:     "0.0.1",
-				SystemLangCode: "en",
-				LangCode:       "en",
-			},
-		},
-	)
-	if err != nil {
-		log.Fatalln("failed to start client:", err)
-	}
-
-	defer client.Stop()
-
-	db, err := gorm.Open(dialector, &gorm.Config{})
-	if err != nil {
-		log.Fatal("failed to open database:", err)
-	}
-
-	err = db.AutoMigrate(&Message{})
-	if err != nil {
-		log.Fatal("failed to automigrate message:", err)
-	}
-
 	// Создаём контекст
 	tgCtx := client.CreateContext()
 
